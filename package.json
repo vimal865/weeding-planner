@@ -1,0 +1,41 @@
+{
+  "name": "wedding-marketplace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4",
+    "@supabase/ssr": "^0.4.0",
+    "next": "14.2.3",
+    "react": "^18",
+    "react-dom": "^18",
+    "lucide-react": "^0.379.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.3.0",
+    "date-fns": "^3.6.0",
+    "react-hot-toast": "^2.4.1",
+    "cloudinary": "^2.2.0",
+    "razorpay": "^2.9.2",
+    "nodemailer": "^6.9.13",
+    "zod": "^3.23.8",
+    "crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/nodemailer": "^6.4.15",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.3",
+    "autoprefixer": "^10.0.1"
+  }
+}

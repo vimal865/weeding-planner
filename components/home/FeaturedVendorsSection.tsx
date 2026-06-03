@@ -1,0 +1,1 @@
+export { FeaturedVendorsSection } from './HomeSections'
