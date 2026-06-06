@@ -1,35 +1,70 @@
 import type { Metadata }   from 'next'
 import Link                 from 'next/link'
 import { StatsCard }        from '@/components/admin/StatsCard'
+import { supabaseAdmin }    from '@/lib/supabase-admin'
 import {
   Store, MessageSquare, Users, Star,
-  TrendingUp, ArrowRight, BadgeCheck, Clock, Eye,
+  ArrowRight, BadgeCheck, Clock, Eye,
 } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
-// Mocked — replace with real Supabase queries
-const STATS = [
-  { label: 'Total Vendors',     value: '1,247',  sub: '38 pending approval', icon: Store,        iconBg: 'bg-rose-50',   iconColor: 'text-rose-500',   trend:  12 },
-  { label: 'Enquiries (month)', value: '2,843',  sub: 'across all vendors',  icon: MessageSquare, iconBg: 'bg-blue-50',   iconColor: 'text-blue-500',   trend:  18 },
-  { label: 'Registered Users',  value: '8,412',  sub: '124 this week',       icon: Users,         iconBg: 'bg-purple-50', iconColor: 'text-purple-500', trend:   9 },
-  { label: 'Avg. Rating',       value: '4.7 ★',  sub: 'across all vendors',  icon: Star,          iconBg: 'bg-amber-50',  iconColor: 'text-amber-500',  trend:   2 },
-]
+async function getDashboardData() {
+  const now       = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
-const RECENT_ENQUIRIES = [
-  { id: '1', couple: 'Sneha & Arjun',   vendor: 'SnapStory Studio',     city: 'Kochi',      time: '2 min ago',  status: 'new'     },
-  { id: '2', couple: 'Priya Menon',     vendor: 'Royal Gardens Banquet', city: 'Thrissur',   time: '15 min ago', status: 'viewed'  },
-  { id: '3', couple: 'Kavitha Raj',     vendor: 'Artistry Bridal',      city: 'Coimbatore', time: '1 hr ago',   status: 'replied' },
-  { id: '4', couple: 'Maria Thomas',    vendor: 'Petal Works Decor',    city: 'Chennai',    time: '2 hrs ago',  status: 'new'     },
-  { id: '5', couple: 'Deepika & Rohit', vendor: 'Sadya Masters',        city: 'Trivandrum', time: '3 hrs ago',  status: 'booked'  },
-]
+  const [
+    vendorsResult,
+    usersResult,
+    enquiriesMonthResult,
+    pendingResult,
+    revenueResult,
+    recentEnquiriesResult,
+    pendingVendorsResult,
+  ] = await Promise.all([
+    supabaseAdmin.from('vendors').select('id,plan_tier,published,rating', { count: 'exact' }),
+    supabaseAdmin.from('user_profiles').select('id', { count: 'exact' }),
+    supabaseAdmin.from('enquiries').select('id', { count: 'exact' }).gte('created_at', monthStart),
+    supabaseAdmin.from('vendors').select('id', { count: 'exact' }).eq('published', false),
+    supabaseAdmin.from('subscriptions').select('amount').eq('status', 'paid').gte('created_at', monthStart),
+    supabaseAdmin
+      .from('enquiries')
+      .select('id,name,city,status,created_at,vendors(name)')
+      .order('created_at', { ascending: false })
+      .limit(5),
+    supabaseAdmin
+      .from('vendors')
+      .select('id,name,category,city,created_at')
+      .eq('published', false)
+      .order('created_at', { ascending: false })
+      .limit(4),
+  ])
 
-const PENDING_VENDORS = [
-  { id: '1', name: 'Lens & Love Studio',   category: 'Photography',  city: 'Kochi',     submitted: '2 days ago' },
-  { id: '2', name: 'Crystal Banquet Hall', category: 'Venues',       city: 'Thrissur',  submitted: '1 day ago'  },
-  { id: '3', name: 'Glow Bridal Academy',  category: 'Makeup',       city: 'Madurai',   submitted: '5 hrs ago'  },
-  { id: '4', name: 'Spice Garden Catering',category: 'Catering',     city: 'Kozhikode', submitted: '3 hrs ago'  },
-]
+  const vendors         = vendorsResult.data ?? []
+  const totalVendors    = vendorsResult.count ?? 0
+  const totalUsers      = usersResult.count ?? 0
+  const enquiriesMonth  = enquiriesMonthResult.count ?? 0
+  const pendingCount    = pendingResult.count ?? 0
+  const monthRevenue    = (revenueResult.data ?? []).reduce((s, r) => s + (r.amount ?? 0), 0)
+  const premiumCount    = vendors.filter(v => v.plan_tier === 'premium').length
+  const eliteCount      = vendors.filter(v => v.plan_tier === 'elite').length
+  const avgRating       = vendors.length > 0
+    ? (vendors.reduce((s, v) => s + (Number(v.rating) || 0), 0) / vendors.length).toFixed(1)
+    : '0.0'
+
+  return {
+    totalVendors,
+    totalUsers,
+    enquiriesMonth,
+    pendingCount,
+    monthRevenue,
+    premiumCount,
+    eliteCount,
+    avgRating,
+    recentEnquiries: recentEnquiriesResult.data ?? [],
+    pendingVendors:  pendingVendorsResult.data ?? [],
+  }
+}
 
 const STATUS_STYLES: Record<string, string> = {
   new:     'bg-blue-50 text-blue-600 border-blue-200',
@@ -39,7 +74,26 @@ const STATUS_STYLES: Record<string, string> = {
   closed:  'bg-gray-50 text-gray-500 border-gray-200',
 }
 
-export default function AdminDashboard() {
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins  = Math.floor(diff / 60000)
+  if (mins < 1)   return 'just now'
+  if (mins < 60)  return `${mins} min ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24)   return `${hrs} hr${hrs > 1 ? 's' : ''} ago`
+  return `${Math.floor(hrs / 24)} day${Math.floor(hrs / 24) > 1 ? 's' : ''} ago`
+}
+
+export default async function AdminDashboard() {
+  const d = await getDashboardData()
+
+  const STATS = [
+    { label: 'Total Vendors',     value: d.totalVendors.toLocaleString(),   sub: `${d.pendingCount} pending approval`, icon: Store,         iconBg: 'bg-rose-50',   iconColor: 'text-rose-500',   trend: 0 },
+    { label: 'Enquiries (month)', value: d.enquiriesMonth.toLocaleString(),  sub: 'across all vendors',                 icon: MessageSquare, iconBg: 'bg-blue-50',   iconColor: 'text-blue-500',   trend: 0 },
+    { label: 'Registered Users',  value: d.totalUsers.toLocaleString(),      sub: 'total registered',                   icon: Users,         iconBg: 'bg-purple-50', iconColor: 'text-purple-500', trend: 0 },
+    { label: 'Avg. Rating',       value: `${d.avgRating} ★`,                 sub: 'across all vendors',                 icon: Star,          iconBg: 'bg-amber-50',  iconColor: 'text-amber-500',  trend: 0 },
+  ]
+
   return (
     <div className="space-y-6 max-w-screen-xl">
       {/* Header */}
@@ -58,18 +112,16 @@ export default function AdminDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {STATS.map(s => (
-          <StatsCard key={s.label} {...s} />
-        ))}
+        {STATS.map(s => <StatsCard key={s.label} {...s} />)}
       </div>
 
       {/* Revenue strip */}
       <div className="bg-brand-wine rounded-2xl p-5 text-white grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Monthly Revenue',  value: '₹2,45,000', sub: '+18% vs last month' },
-          { label: 'Premium Plans',    value: '143',        sub: 'active subscriptions' },
-          { label: 'Elite Plans',      value: '28',         sub: 'active subscriptions' },
-          { label: 'Avg. Plan Value',  value: '₹2,840',    sub: 'per vendor/month' },
+          { label: 'Monthly Revenue', value: `₹${(d.monthRevenue / 100).toLocaleString('en-IN')}`, sub: 'paid subscriptions' },
+          { label: 'Premium Plans',   value: d.premiumCount.toString(),                             sub: 'active subscriptions' },
+          { label: 'Elite Plans',     value: d.eliteCount.toString(),                               sub: 'active subscriptions' },
+          { label: 'Pending Approval',value: d.pendingCount.toString(),                             sub: 'vendors awaiting review' },
         ].map(item => (
           <div key={item.label} className="text-center sm:text-left">
             <p className="font-serif text-2xl font-bold text-white">{item.value}</p>
@@ -93,23 +145,25 @@ export default function AdminDashboard() {
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {RECENT_ENQUIRIES.map(e => (
+            {d.recentEnquiries.length > 0 ? d.recentEnquiries.map((e: any) => (
               <div key={e.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-brand-rose-light text-brand-wine text-xs font-semibold flex items-center justify-center shrink-0">
-                  {e.couple.split(' ')[0][0]}
+                  {e.name?.[0]?.toUpperCase() ?? '?'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-700 truncate">{e.couple}</p>
-                  <p className="text-xs text-gray-400 truncate">{e.vendor} · {e.city}</p>
+                  <p className="text-sm font-medium text-gray-700 truncate">{e.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{(e.vendors as any)?.name ?? 'Unknown vendor'} · {e.city}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium capitalize ${STATUS_STYLES[e.status]}`}>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium capitalize ${STATUS_STYLES[e.status] ?? STATUS_STYLES.closed}`}>
                     {e.status}
                   </span>
-                  <span className="text-[10px] text-gray-400 hidden sm:block">{e.time}</span>
+                  <span className="text-[10px] text-gray-400 hidden sm:block">{timeAgo(e.created_at)}</span>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-center text-gray-400 text-sm py-6">No enquiries yet</p>
+            )}
           </div>
         </div>
 
@@ -119,23 +173,25 @@ export default function AdminDashboard() {
             <h2 className="font-semibold text-gray-700 flex items-center gap-2">
               <Clock size={16} className="text-amber-500" />
               Pending Approvals
-              <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-600 text-[10px] font-bold flex items-center justify-center">
-                {PENDING_VENDORS.length}
-              </span>
+              {d.pendingCount > 0 && (
+                <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-600 text-[10px] font-bold flex items-center justify-center">
+                  {d.pendingCount}
+                </span>
+              )}
             </h2>
             <Link href="/admin/vendors?status=pending" className="text-xs text-brand-rose hover:underline flex items-center gap-1">
               View all <ArrowRight size={12} />
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {PENDING_VENDORS.map(v => (
+            {d.pendingVendors.length > 0 ? d.pendingVendors.map((v: any) => (
               <div key={v.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold flex items-center justify-center shrink-0">
-                  {v.name[0]}
+                  {v.name?.[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-700 truncate">{v.name}</p>
-                  <p className="text-xs text-gray-400">{v.category} · {v.city} · {v.submitted}</p>
+                  <p className="text-xs text-gray-400">{v.category} · {v.city} · {timeAgo(v.created_at)}</p>
                 </div>
                 <div className="flex gap-1.5 shrink-0">
                   <Link
@@ -146,7 +202,9 @@ export default function AdminDashboard() {
                   </Link>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-center text-gray-400 text-sm py-6">No pending approvals 🎉</p>
+            )}
           </div>
         </div>
       </div>
@@ -154,10 +212,10 @@ export default function AdminDashboard() {
       {/* Quick actions */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'New Blog Post',   href: '/admin/blog/new',            color: 'bg-blue-50  text-blue-600  hover:bg-blue-100'  },
-          { label: 'Add Real Wedding',href: '/admin/real-weddings/new',   color: 'bg-pink-50  text-pink-600  hover:bg-pink-100'  },
-          { label: 'Update Muhurtham',href: '/admin/muhurtham',           color: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
-          { label: 'View Analytics',  href: '/admin/analytics',           color: 'bg-green-50 text-green-600 hover:bg-green-100' },
+          { label: 'New Blog Post',    href: '/admin/blog/new',          color: 'bg-blue-50  text-blue-600  hover:bg-blue-100'  },
+          { label: 'Add Real Wedding', href: '/admin/real-weddings/new', color: 'bg-pink-50  text-pink-600  hover:bg-pink-100'  },
+          { label: 'Update Muhurtham', href: '/admin/muhurtham',         color: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
+          { label: 'View Analytics',   href: '/admin/analytics',         color: 'bg-green-50 text-green-600 hover:bg-green-100' },
         ].map(a => (
           <Link key={a.label} href={a.href} className={`${a.color} p-4 rounded-xl text-sm font-medium text-center transition-colors`}>
             {a.label}

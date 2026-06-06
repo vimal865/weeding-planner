@@ -72,29 +72,35 @@ function LoginForm() {
   // ── Sign up ─────────────────────────────────────────────────────────────────
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) { toast.error('Please enter your name.'); return }
-    if (password !== confirmPassword) { toast.error('Passwords do not match.'); return }
-    if (password.length < 6) { toast.error('Password must be at least 6 characters.'); return }
+    if (!name.trim())                { toast.error('Please enter your name.');            return }
+    if (password !== confirmPassword){ toast.error('Passwords do not match.');            return }
+    if (password.length < 6)         { toast.error('Password must be at least 6 chars.'); return }
 
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name: name.trim(), phone: signupPhone },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+      // Call server-side signup — creates user already confirmed, returns session token
+      const res  = await fetch('/api/auth/signup', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email, password, name: name.trim(), phone: signupPhone }),
       })
-      if (error) throw error
+      const data = await res.json()
 
-      // Email confirmation disabled — session returned immediately
-      if (data.session) {
-        toast.success('Account created! Welcome!')
-        router.push('/dashboard')
-      } else {
-        setSignedUp(true)
+      if (!res.ok || !data.success) {
+        throw new Error(data.error ?? 'Sign-up failed.')
       }
+
+      const { token_hash } = data.data as { token_hash: string; email: string; name: string }
+
+      // Exchange the server-generated token for a live session
+      const { error: sessionErr } = await supabase.auth.verifyOtp({
+        token_hash,
+        type: 'magiclink',
+      })
+      if (sessionErr) throw sessionErr
+
+      toast.success(`Welcome, ${name.trim()}! Account created.`)
+      router.push('/dashboard')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign-up failed.'
       toast.error(msg)
@@ -123,14 +129,17 @@ function LoginForm() {
     if (!phone) return
     setLoading(true)
     try {
-      const clean = phone.replace(/\D/g, '')
-      const intl  = clean.startsWith('91') ? `+${clean}` : `+91${clean}`
-      const { error } = await supabase.auth.signInWithOtp({ phone: intl })
-      if (error) throw error
+      const res  = await fetch('/api/auth/otp', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'send', phone }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error ?? 'Failed to send OTP')
       setStep('otp')
       toast.success('OTP sent to your phone!')
-    } catch {
-      toast.error('Failed to send OTP')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send OTP')
     } finally {
       setLoading(false)
     }
@@ -141,14 +150,22 @@ function LoginForm() {
     if (!otp) return
     setLoading(true)
     try {
-      const clean = phone.replace(/\D/g, '')
-      const intl  = clean.startsWith('91') ? `+${clean}` : `+91${clean}`
-      const { error } = await supabase.auth.verifyOtp({ phone: intl, token: otp, type: 'sms' })
+      const res  = await fetch('/api/auth/otp', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'verify', phone, otp }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error ?? 'Invalid OTP')
+
+      const { token_hash } = data.data as { token_hash: string; email: string }
+      const { error } = await supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })
       if (error) throw error
+
       toast.success('Logged in successfully!')
       router.push('/dashboard')
-    } catch {
-      toast.error('Invalid OTP. Please try again.')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Verification failed')
     } finally {
       setLoading(false)
     }
@@ -195,37 +212,7 @@ function LoginForm() {
 
           {/* ── Email tab ── */}
           {tab === 'password' && (
-            signedUp ? (
-              /* ── Verification pending screen ── */
-              <div className="text-center py-6">
-                <div className="w-16 h-16 rounded-full bg-brand-cream flex items-center justify-center mx-auto mb-4 border border-brand-rose-light">
-                  <Mail size={26} className="text-brand-wine" />
-                </div>
-                <h2 className="font-serif text-xl font-semibold text-brand-wine">Verify your email</h2>
-                <p className="text-gray-500 text-sm mt-3 leading-relaxed">
-                  We sent a confirmation link to<br />
-                  <strong className="text-gray-700">{email}</strong>
-                </p>
-                <p className="text-gray-400 text-xs mt-2">
-                  Click the link in the email to activate your account.<br />
-                  You&apos;ll be logged in automatically after confirming.
-                </p>
-                <div className="mt-5 space-y-2">
-                  <button
-                    onClick={() => supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } }).then(() => toast.success('Resent!'))}
-                    className="text-brand-rose text-sm font-medium hover:underline block mx-auto"
-                  >
-                    Resend confirmation email
-                  </button>
-                  <button
-                    onClick={() => { setSignedUp(false); switchMode('signin') }}
-                    className="text-gray-400 text-xs hover:underline block mx-auto"
-                  >
-                    Back to sign in
-                  </button>
-                </div>
-              </div>
-            ) : mode === 'signin' ? (
+            mode === 'signin' ? (
               /* ── Sign in form ── */
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div>

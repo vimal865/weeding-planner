@@ -1,6 +1,7 @@
 import type { Metadata }  from 'next'
 import Image               from 'next/image'
 import Link                from 'next/link'
+import { notFound }        from 'next/navigation'
 import {
   Star, MapPin, Phone, MessageCircle, Share2, Heart,
   BadgeCheck, Crown, Calendar, ChevronRight, Instagram,
@@ -8,55 +9,67 @@ import {
 } from 'lucide-react'
 import { EnquiryForm }     from '@/components/vendor/EnquiryForm'
 import { getCategoryMeta, formatPriceRange, whatsappLink } from '@/lib/utils'
+import { supabaseAdmin }   from '@/lib/supabase-admin'
 import type { Vendor }     from '@/lib/types'
 
 interface Props { params: { slug: string } }
 
-// Mock — replace with actual Supabase fetch
 async function getVendor(slug: string): Promise<Vendor | null> {
-  return {
-    id:              '1',
-    slug,
-    name:            'SnapStory Studio',
-    category:        'photographers',
-    sub_category:    'Candid Photography',
-    city:            'Kochi',
-    state:           'kerala',
-    phone:           '+91 98765 43210',
-    whatsapp:        '9876543210',
-    email:           'hello@snapstory.in',
-    website:         'https://snapstory.in',
-    description:     'Kochi\'s award-winning candid wedding photography studio',
-    about:           'SnapStory Studio has been capturing love stories across Kerala and Tamil Nadu since 2016. Our team of 8 photographers specialises in candid, documentary-style coverage that tells your unique story. We believe every frame should feel as real as the moment itself.',
-    starting_price:  25000,
-    max_price:       150000,
-    price_unit:      'per_event',
-    cover_image:     'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&q=80',
-      'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=800&q=80',
-      'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&q=80',
-      'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=800&q=80',
-      'https://images.unsplash.com/photo-1444939648560-8f39f3bdc8c2?w=800&q=80',
-      'https://images.unsplash.com/photo-1537907690979-8ea78f78e55b?w=800&q=80',
-    ],
-    reels:           [],
-    services:        ['Candid Photography', 'Cinematic Videography', 'Pre-wedding Shoot', 'Drone Photography', 'Same-day Edit', 'Traditional Photography'],
-    languages:       ['Malayalam', 'Tamil', 'English'],
-    verified:        true,
-    premium:         true,
-    featured:        true,
-    rating:          4.9,
-    review_count:    87,
-    enquiry_count:   342,
-    view_count:      12400,
-    instagram_handle: 'snapstory.kochi',
-    google_map_url:  'https://maps.google.com',
-    latitude:        9.9312,
-    longitude:       76.2673,
-    created_at:      '2023-01-01',
-    updated_at:      '2025-01-01',
-  }
+  const { data, error } = await supabaseAdmin
+    .from('vendors')
+    .select('*')
+    .or(`slug.eq.${slug},id.eq.${slug}`)
+    .eq('published', true)
+    .single()
+
+  if (error || !data) return null
+
+  // Increment view count (fire-and-forget, don't await)
+  supabaseAdmin
+    .from('vendors')
+    .update({ view_count: (data.view_count ?? 0) + 1 })
+    .eq('id', data.id)
+    .then()
+
+  return data as Vendor
+}
+
+interface Review {
+  id: string
+  rating: number
+  title: string | null
+  body: string
+  wedding_month: string | null
+  created_at: string
+  user_id: string
+  user_name: string
+}
+
+async function getReviews(vendorId: string): Promise<Review[]> {
+  const { data: reviews } = await supabaseAdmin
+    .from('reviews')
+    .select('id,rating,title,body,wedding_month,created_at,user_id')
+    .eq('vendor_id', vendorId)
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  if (!reviews || reviews.length === 0) return []
+
+  // Fetch user names for the reviewers
+  const userIds = Array.from(new Set(reviews.map(r => r.user_id)))
+  const { data: profiles } = await supabaseAdmin
+    .from('user_profiles')
+    .select('id,full_name')
+    .in('id', userIds)
+
+  const nameMap = Object.fromEntries(
+    (profiles ?? []).map(p => [p.id, p.full_name as string]),
+  )
+
+  return reviews.map(r => ({
+    ...r,
+    user_name: nameMap[r.user_id] || 'Verified Couple',
+  }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -69,16 +82,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-const SAMPLE_REVIEWS = [
-  { id: '1', user: 'Sneha R.',   rating: 5, date: 'Dec 2024', text: 'Absolutely stunning photos! The team was professional, patient, and captured every emotion perfectly. Our album is a treasure.' },
-  { id: '2', user: 'Priya K.',   rating: 5, date: 'Nov 2024', text: 'Best candid photographer in Kochi without a doubt. They did our pre-wedding shoot in Munnar and the results were breathtaking.' },
-  { id: '3', user: 'Maria T.',   rating: 4, date: 'Oct 2024', text: 'Very happy with the coverage. Would have liked slightly faster delivery, but the quality more than makes up for it.' },
-]
-
 export default async function VendorDetailPage({ params }: Props) {
   const vendor = await getVendor(params.slug)
-  if (!vendor) return <div className="p-8 text-center text-gray-500">Vendor not found</div>
+  if (!vendor) notFound()
 
+  const reviews = await getReviews(vendor.id)
   const cat = getCategoryMeta(vendor.category)
   const waMsg = `Hi ${vendor.name}! I found your profile on KalyanamToday and I'm interested in your ${cat.label} services. Can you share more details?`
 
@@ -108,7 +116,20 @@ export default async function VendorDetailPage({ params }: Props) {
             {/* Cover + gallery */}
             <div className="bg-white rounded-2xl overflow-hidden border border-brand-rose-light">
               <div className="relative h-72 md:h-96">
-                <Image src={vendor.cover_image!} alt={vendor.name} fill className="object-cover" priority sizes="(max-width: 1024px) 100vw, 66vw" />
+                {vendor.cover_image ? (
+                  <Image
+                    src={vendor.cover_image}
+                    alt={vendor.name}
+                    fill
+                    className="object-cover"
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 66vw"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-brand-rose-light flex items-center justify-center text-8xl opacity-30">
+                    {cat.icon}
+                  </div>
+                )}
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
@@ -136,11 +157,17 @@ export default async function VendorDetailPage({ params }: Props) {
               </div>
 
               {/* Thumbnail gallery */}
-              {vendor.gallery.length > 0 && (
+              {vendor.gallery && vendor.gallery.length > 0 && (
                 <div className="grid grid-cols-6 gap-1 p-1">
                   {vendor.gallery.slice(0, 6).map((img, i) => (
                     <div key={i} className="relative aspect-square rounded-lg overflow-hidden cursor-pointer group">
-                      <Image src={img} alt={`${vendor.name} gallery ${i + 1}`} fill className="object-cover group-hover:scale-105 transition-transform" sizes="100px" />
+                      <Image
+                        src={img}
+                        alt={`${vendor.name} gallery ${i + 1}`}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform"
+                        sizes="100px"
+                      />
                       {i === 5 && vendor.gallery.length > 6 && (
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-medium text-sm">
                           +{vendor.gallery.length - 6}
@@ -158,24 +185,39 @@ export default async function VendorDetailPage({ params }: Props) {
                 <div>
                   <h1 className="font-serif text-2xl md:text-3xl font-bold text-brand-wine">{vendor.name}</h1>
                   <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-500">
-                    <span className="flex items-center gap-1"><MapPin size={13} className="text-brand-rose" />{vendor.city}, {vendor.state === 'kerala' ? 'Kerala' : 'Tamil Nadu'}</span>
-                    <span className="flex items-center gap-1 text-amber-500"><Star size={13} fill="currentColor" /><span className="font-medium text-gray-700">{vendor.rating}</span> ({vendor.review_count} reviews)</span>
-                    <span className="flex items-center gap-1"><Clock size={13} className="text-brand-rose" />Responds within 24h</span>
+                    <span className="flex items-center gap-1">
+                      <MapPin size={13} className="text-brand-rose" />
+                      {vendor.city}, {vendor.state === 'kerala' ? 'Kerala' : 'Tamil Nadu'}
+                    </span>
+                    {vendor.rating > 0 && (
+                      <span className="flex items-center gap-1 text-amber-500">
+                        <Star size={13} fill="currentColor" />
+                        <span className="font-medium text-gray-700">{vendor.rating}</span>
+                        ({vendor.review_count} reviews)
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Clock size={13} className="text-brand-rose" />Responds within 24h
+                    </span>
                   </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs text-gray-400 mb-0.5">Starting from</p>
-                  <p className="font-serif text-2xl font-bold text-brand-wine">{formatPriceRange(vendor.starting_price, null)}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">per event</p>
-                </div>
+                {vendor.starting_price && (
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-gray-400 mb-0.5">Starting from</p>
+                    <p className="font-serif text-2xl font-bold text-brand-wine">
+                      {formatPriceRange(vendor.starting_price, null)}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">per event</p>
+                  </div>
+                )}
               </div>
 
               {/* Stats row */}
               <div className="grid grid-cols-3 gap-4 mt-5 pt-4 border-t border-brand-rose-light">
                 {[
-                  { icon: Users,  value: `${vendor.enquiry_count}+`, label: 'Enquiries' },
-                  { icon: Award,  value: `${vendor.review_count}`,   label: 'Reviews'   },
-                  { icon: Calendar, value: '8+ yrs',                 label: 'Experience' },
+                  { icon: Users,    value: `${vendor.enquiry_count ?? 0}+`, label: 'Enquiries' },
+                  { icon: Award,    value: `${vendor.review_count ?? 0}`,   label: 'Reviews'   },
+                  { icon: Calendar, value: `${vendor.view_count ?? 0}`,     label: 'Views'     },
                 ].map(stat => (
                   <div key={stat.label} className="text-center">
                     <div className="flex justify-center mb-1"><stat.icon size={16} className="text-brand-rose" /></div>
@@ -186,65 +228,83 @@ export default async function VendorDetailPage({ params }: Props) {
               </div>
 
               {/* Languages */}
-              <div className="flex flex-wrap gap-2 mt-4">
-                {vendor.languages.map(lang => (
-                  <span key={lang} className="badge-category">{lang}</span>
-                ))}
-              </div>
+              {vendor.languages && vendor.languages.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {vendor.languages.map(lang => (
+                    <span key={lang} className="badge-category">{lang}</span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* About */}
-            <div className="bg-white rounded-2xl p-6 border border-brand-rose-light">
-              <h2 className="font-serif text-xl font-semibold text-brand-wine mb-3">About {vendor.name}</h2>
-              <p className="text-gray-600 text-sm leading-relaxed">{vendor.about}</p>
-            </div>
+            {(vendor.about || vendor.description) && (
+              <div className="bg-white rounded-2xl p-6 border border-brand-rose-light">
+                <h2 className="font-serif text-xl font-semibold text-brand-wine mb-3">About {vendor.name}</h2>
+                <p className="text-gray-600 text-sm leading-relaxed">{vendor.about ?? vendor.description}</p>
+              </div>
+            )}
 
             {/* Services */}
-            <div className="bg-white rounded-2xl p-6 border border-brand-rose-light">
-              <h2 className="font-serif text-xl font-semibold text-brand-wine mb-4">Services Offered</h2>
-              <div className="flex flex-wrap gap-2">
-                {vendor.services.map(s => (
-                  <span key={s} className="px-3 py-1.5 bg-brand-rose-light text-brand-wine text-sm rounded-full border border-brand-rose/20 font-medium">
-                    {s}
-                  </span>
-                ))}
+            {vendor.services && vendor.services.length > 0 && (
+              <div className="bg-white rounded-2xl p-6 border border-brand-rose-light">
+                <h2 className="font-serif text-xl font-semibold text-brand-wine mb-4">Services Offered</h2>
+                <div className="flex flex-wrap gap-2">
+                  {vendor.services.map(s => (
+                    <span key={s} className="px-3 py-1.5 bg-brand-rose-light text-brand-wine text-sm rounded-full border border-brand-rose/20 font-medium">
+                      {s}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Reviews */}
             <div className="bg-white rounded-2xl p-6 border border-brand-rose-light">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="font-serif text-xl font-semibold text-brand-wine">Customer Reviews</h2>
-                <div className="flex items-center gap-2">
-                  <Star size={20} fill="#FBBF24" className="text-amber-400" />
-                  <span className="text-2xl font-bold text-brand-wine font-serif">{vendor.rating}</span>
-                  <span className="text-sm text-gray-400">/ 5</span>
-                </div>
+                {vendor.rating > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Star size={20} fill="#FBBF24" className="text-amber-400" />
+                    <span className="text-2xl font-bold text-brand-wine font-serif">{vendor.rating}</span>
+                    <span className="text-sm text-gray-400">/ 5</span>
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-4">
-                {SAMPLE_REVIEWS.map(r => (
-                  <div key={r.id} className="pb-4 border-b border-brand-rose-light last:border-0">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-full bg-brand-rose-light text-brand-wine flex items-center justify-center text-sm font-medium shrink-0">
-                          {r.user[0]}
+              {reviews.length > 0 ? (
+                <div className="space-y-4">
+                  {reviews.map(r => (
+                    <div key={r.id} className="pb-4 border-b border-brand-rose-light last:border-0">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-full bg-brand-rose-light text-brand-wine flex items-center justify-center text-sm font-medium shrink-0">
+                            {r.user_name[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-700 text-sm">{r.user_name}</p>
+                            <p className="text-xs text-gray-400">
+                              {r.wedding_month ?? new Date(r.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-700 text-sm">{r.user}</p>
-                          <p className="text-xs text-gray-400">{r.date}</p>
+                        <div className="flex items-center gap-0.5 text-amber-400 shrink-0">
+                          {Array.from({ length: r.rating }).map((_, i) => (
+                            <Star key={i} size={12} fill="currentColor" />
+                          ))}
                         </div>
                       </div>
-                      <div className="flex items-center gap-0.5 text-amber-400 shrink-0">
-                        {Array.from({ length: r.rating }).map((_, i) => (
-                          <Star key={i} size={12} fill="currentColor" />
-                        ))}
-                      </div>
+                      {r.title && <p className="font-medium text-gray-700 text-sm mb-1">{r.title}</p>}
+                      <p className="text-gray-600 text-sm leading-relaxed">{r.body}</p>
                     </div>
-                    <p className="text-gray-600 text-sm leading-relaxed">{r.text}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <Star size={32} className="mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">No reviews yet — be the first!</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -266,7 +326,10 @@ export default async function VendorDetailPage({ params }: Props) {
                     WhatsApp Now
                   </a>
                 )}
-                <a href={`tel:${vendor.phone}`} className="flex items-center justify-center gap-2 w-full border border-brand-rose/40 text-brand-wine hover:bg-brand-rose-light font-medium px-4 py-2.5 rounded-xl transition-all text-sm">
+                <a
+                  href={`tel:${vendor.phone}`}
+                  className="flex items-center justify-center gap-2 w-full border border-brand-rose/40 text-brand-wine hover:bg-brand-rose-light font-medium px-4 py-2.5 rounded-xl transition-all text-sm"
+                >
                   <Phone size={15} />
                   Call Directly
                 </a>
@@ -292,11 +355,13 @@ export default async function VendorDetailPage({ params }: Props) {
             </div>
 
             {/* Social proof */}
-            <div className="bg-brand-rose-light rounded-2xl p-4 border border-brand-rose/20 text-center">
-              <p className="text-brand-wine font-medium text-sm">
-                🔥 <span className="font-bold">{Math.floor(Math.random() * 20 + 10)}</span> couples enquired this month
-              </p>
-            </div>
+            {vendor.enquiry_count > 0 && (
+              <div className="bg-brand-rose-light rounded-2xl p-4 border border-brand-rose/20 text-center">
+                <p className="text-brand-wine font-medium text-sm">
+                  🔥 <span className="font-bold">{vendor.enquiry_count}</span> couples enquired this month
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

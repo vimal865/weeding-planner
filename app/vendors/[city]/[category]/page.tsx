@@ -1,10 +1,11 @@
-import type { Metadata }    from 'next'
-import Link                  from 'next/link'
-import { VendorCard }        from '@/components/vendor/VendorCard'
-import { VendorFiltersPanel } from '@/components/vendor/VendorFiltersPanel'
-import { getCategoryMeta, getCity, ALL_CITIES, CATEGORIES, formatPrice } from '@/lib/utils'
+import type { Metadata }       from 'next'
+import Link                     from 'next/link'
+import { VendorCard }           from '@/components/vendor/VendorCard'
+import { VendorFiltersPanel }   from '@/components/vendor/VendorFiltersPanel'
+import { getCategoryMeta, getCity, ALL_CITIES, CATEGORIES } from '@/lib/utils'
 import { SlidersHorizontal, MapPin, ChevronRight } from 'lucide-react'
-import type { VendorCategory, VendorSummary }    from '@/lib/types'
+import type { VendorCategory, VendorSummary } from '@/lib/types'
+import { supabaseAdmin }        from '@/lib/supabase-admin'
 
 interface Props {
   params:      { city: string; category: string }
@@ -19,28 +20,68 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     : `${cat.label} — KalyanamToday`
   return {
     title,
-    description: `Find and compare the best ${cat.label.toLowerCase()} in ${city?.name ?? 'Kerala & Tamil Nadu'}. Verified profiles, real reviews, transparent pricing. Book via WhatsApp instantly.`,
+    description: `Find and compare the best ${cat.label.toLowerCase()} in ${
+      city?.name ?? 'Kerala & Tamil Nadu'
+    }. Verified profiles, real reviews, transparent pricing. Book via WhatsApp instantly.`,
   }
 }
 
-// Mock vendors — replace with actual Supabase query
-async function getVendors(city: string, category: string): Promise<VendorSummary[]> {
-  return [
-    { id: '1', slug: `${category}-vendor-1-${city}`, name: 'Sample Vendor One',   category: category as VendorCategory, city: getCity(city)?.name ?? city, cover_image: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=600&q=80', starting_price: 25000, rating: 4.9, review_count: 87,  verified: true,  premium: true,  whatsapp: '9876543210' },
-    { id: '2', slug: `${category}-vendor-2-${city}`, name: 'Sample Vendor Two',   category: category as VendorCategory, city: getCity(city)?.name ?? city, cover_image: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=600&q=80', starting_price: 40000, rating: 4.7, review_count: 124, verified: true,  premium: false, whatsapp: '9876543211' },
-    { id: '3', slug: `${category}-vendor-3-${city}`, name: 'Sample Vendor Three', category: category as VendorCategory, city: getCity(city)?.name ?? city, cover_image: 'https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?w=600&q=80', starting_price: 15000, rating: 4.5, review_count: 56,  verified: true,  premium: false, whatsapp: '9876543212' },
-    { id: '4', slug: `${category}-vendor-4-${city}`, name: 'Sample Vendor Four',  category: category as VendorCategory, city: getCity(city)?.name ?? city, cover_image: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=600&q=80', starting_price: 60000, rating: 4.8, review_count: 43,  verified: false, premium: false, whatsapp: '9876543213' },
-    { id: '5', slug: `${category}-vendor-5-${city}`, name: 'Sample Vendor Five',  category: category as VendorCategory, city: getCity(city)?.name ?? city, cover_image: 'https://images.unsplash.com/photo-1555244162-803834f70033?w=600&q=80', starting_price: 20000, rating: 4.6, review_count: 98,  verified: true,  premium: true,  whatsapp: '9876543214' },
-    { id: '6', slug: `${category}-vendor-6-${city}`, name: 'Sample Vendor Six',   category: category as VendorCategory, city: getCity(city)?.name ?? city, cover_image: 'https://images.unsplash.com/photo-1583195764036-46973a4e1522?w=600&q=80', starting_price: 12000, rating: 4.4, review_count: 31,  verified: false, premium: false, whatsapp: '9876543215' },
-  ]
+async function getVendors(
+  citySlug: string,
+  category: string,
+  sp: { [key: string]: string | undefined },
+): Promise<{ vendors: VendorSummary[]; total: number }> {
+  const city     = getCity(citySlug)
+  const cityName = city?.name ?? citySlug
+  // Normalise URL slug to DB enum  e.g. "makeup-artists" → "makeup_artists"
+  const dbCategory = category.replace(/-/g, '_')
+
+  let query = supabaseAdmin
+    .from('vendors')
+    .select(
+      'id,slug,name,category,city,cover_image,starting_price,rating,review_count,verified,premium,whatsapp',
+      { count: 'exact' },
+    )
+    .eq('published', true)
+    .eq('category', dbCategory)
+    .ilike('city', `%${cityName}%`)
+
+  if (sp.verified === 'true') query = query.eq('verified', true)
+  if (sp.min_price)           query = query.gte('starting_price', Number(sp.min_price))
+  if (sp.max_price)           query = query.lte('starting_price', Number(sp.max_price))
+  if (sp.min_rating)          query = query.gte('rating', Number(sp.min_rating))
+
+  switch (sp.sort) {
+    case 'rating':     query = query.order('rating', { ascending: false }); break
+    case 'price_asc':  query = query.order('starting_price', { ascending: true,  nullsFirst: false }); break
+    case 'price_desc': query = query.order('starting_price', { ascending: false, nullsFirst: false }); break
+    case 'newest':     query = query.order('created_at', { ascending: false }); break
+    default:
+      query = query
+        .order('featured',      { ascending: false })
+        .order('premium',       { ascending: false })
+        .order('enquiry_count', { ascending: false })
+  }
+
+  const page  = Math.max(1, Number(sp.page ?? 1))
+  const limit = 24
+  const { data, count, error } = await query.range((page - 1) * limit, page * limit - 1)
+
+  if (error) {
+    console.error('[VendorListing]', error)
+    return { vendors: [], total: 0 }
+  }
+  return { vendors: (data ?? []) as VendorSummary[], total: count ?? 0 }
 }
 
 export default async function VendorListingPage({ params, searchParams }: Props) {
   const city    = getCity(params.city)
   const catMeta = getCategoryMeta(params.category as VendorCategory)
-  const vendors = await getVendors(params.city, params.category)
+  const { vendors, total } = await getVendors(params.city, params.category, searchParams)
 
-  const cityName = city?.name ?? params.city
+  const cityName   = city?.name ?? params.city
+  const currentPage = Number(searchParams.page ?? 1)
+  const totalPages  = Math.ceil(total / 24)
 
   return (
     <div className="min-h-screen bg-brand-cream">
@@ -64,9 +105,11 @@ export default async function VendorListingPage({ params, searchParams }: Props)
                 Best {catMeta.label} in {cityName}
               </h1>
               <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
-                <span className="flex items-center gap-1"><MapPin size={13} className="text-brand-rose" />{cityName}</span>
+                <span className="flex items-center gap-1">
+                  <MapPin size={13} className="text-brand-rose" />{cityName}
+                </span>
                 <span>·</span>
-                <span>{vendors.length} vendors found</span>
+                <span>{total} vendor{total !== 1 ? 's' : ''} found</span>
                 <span>·</span>
                 <span>2025 verified listings</span>
               </div>
@@ -78,7 +121,6 @@ export default async function VendorListingPage({ params, searchParams }: Props)
               <select
                 defaultValue={params.city}
                 className="text-sm border border-brand-rose-light rounded-lg px-3 py-1.5 text-brand-wine bg-white focus:outline-none focus:ring-2 focus:ring-brand-rose/30 cursor-pointer"
-                onChange={e => { window.location.href = `/vendors/${e.target.value}/${params.category}` }}
               >
                 <optgroup label="Kerala">
                   {ALL_CITIES.filter(c => c.state === 'kerala').map(c => (
@@ -127,13 +169,19 @@ export default async function VendorListingPage({ params, searchParams }: Props)
             {/* Sort bar */}
             <div className="flex items-center justify-between mb-5">
               <p className="text-sm text-gray-500">
-                Showing <span className="font-medium text-gray-700">{vendors.length}</span> vendors
+                Showing <span className="font-medium text-gray-700">{vendors.length}</span>
+                {total > vendors.length && (
+                  <> of <span className="font-medium text-gray-700">{total}</span></>
+                )}{' '}vendors
               </p>
               <div className="flex items-center gap-2">
                 <button className="lg:hidden flex items-center gap-1.5 text-sm font-medium text-brand-wine border border-brand-rose-light px-3 py-1.5 rounded-lg hover:bg-brand-rose-light transition-colors">
                   <SlidersHorizontal size={14} /> Filters
                 </button>
-                <select className="text-sm border border-brand-rose-light rounded-lg px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-brand-rose/30 cursor-pointer">
+                <select
+                  defaultValue={searchParams.sort ?? 'popular'}
+                  className="text-sm border border-brand-rose-light rounded-lg px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-brand-rose/30 cursor-pointer"
+                >
                   <option value="popular">Most Popular</option>
                   <option value="rating">Highest Rated</option>
                   <option value="price_asc">Price: Low to High</option>
@@ -157,26 +205,27 @@ export default async function VendorListingPage({ params, searchParams }: Props)
             )}
 
             {/* Pagination */}
-            {vendors.length > 0 && (
+            {totalPages > 1 && (
               <div className="flex justify-center gap-2 mt-10">
-                {[1, 2, 3, '...', 8].map((page, i) => (
-                  <button
-                    key={i}
-                    className={`w-9 h-9 rounded-lg text-sm font-medium transition-all ${
-                      page === 1
+                {Array.from({ length: Math.min(totalPages, 8) }, (_, i) => i + 1).map(p => (
+                  <Link
+                    key={p}
+                    href={`?page=${p}${searchParams.sort ? `&sort=${searchParams.sort}` : ''}`}
+                    className={`w-9 h-9 rounded-lg text-sm font-medium transition-all flex items-center justify-center ${
+                      p === currentPage
                         ? 'bg-brand-wine text-white'
                         : 'bg-white border border-brand-rose-light text-gray-600 hover:border-brand-rose hover:text-brand-wine'
                     }`}
                   >
-                    {page}
-                  </button>
+                    {p}
+                  </Link>
                 ))}
               </div>
             )}
           </div>
         </div>
 
-        {/* SEO content block */}
+        {/* SEO block */}
         <div className="mt-12 bg-white rounded-2xl p-6 border border-brand-rose-light">
           <h2 className="font-serif text-xl font-semibold text-brand-wine mb-3">
             {catMeta.label} in {cityName} — Buyer&apos;s Guide

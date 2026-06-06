@@ -346,6 +346,19 @@ CREATE TABLE subscriptions (
 CREATE INDEX idx_subscriptions_vendor ON subscriptions(vendor_id, status);
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- PHONE OTP STORE  (server-side OTP for Fast2SMS phone auth)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE phone_otps (
+  phone      TEXT        PRIMARY KEY,          -- 10-digit number, no country code
+  otp        TEXT        NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  attempts   INTEGER     NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE phone_otps ENABLE ROW LEVEL SECURITY;
+-- No user-facing policies — accessed only via service-role key (supabaseAdmin)
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- ROW LEVEL SECURITY (RLS)
 -- ─────────────────────────────────────────────────────────────────────────────
 ALTER TABLE user_profiles  ENABLE ROW LEVEL SECURITY;
