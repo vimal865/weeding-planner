@@ -122,7 +122,7 @@ export function Navbar() {
                 <Link
                   href={link.href}
                   className={cn(
-                    'flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center gap-1 px-2 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                     pathname.startsWith(link.href) && link.href !== '/'
                       ? 'text-brand-wine bg-brand-rose-light'
                       : 'text-gray-600 hover:text-brand-wine hover:bg-brand-rose-light/60',
