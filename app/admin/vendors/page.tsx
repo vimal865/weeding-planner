@@ -62,7 +62,7 @@ export default async function AdminVendorsPage({
 
       {/* Filter bar */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 flex-1 min-w-48 bg-gray-50 rounded-xl px-3 py-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto bg-gray-50 rounded-xl px-3 py-2">
           <Search size={14} className="text-gray-400 shrink-0" />
           <input type="text" placeholder="Search vendors..." className="flex-1 bg-transparent text-sm text-gray-600 placeholder-gray-400 focus:outline-none" />
         </div>

@@ -32,7 +32,7 @@ export function MuhurthamSection() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
           {upcoming.map(d => {
             const parsed = parseISO(d.date)
             return (

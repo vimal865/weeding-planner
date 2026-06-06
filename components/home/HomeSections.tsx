@@ -127,7 +127,7 @@ export function TestimonialsSection() {
           <h2 className="section-title">What Couples Say</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           {TESTIMONIALS.map(t => (
             <div key={t.id} className="card p-6">
               <div className="star-rating mb-4">
@@ -201,7 +201,7 @@ export function RealWeddingsSection() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           {REAL_WEDDINGS.map(w => (
             <Link key={w.id} href={`/real-weddings/${w.slug}`} className="card group overflow-hidden">
               <div className="relative h-64">

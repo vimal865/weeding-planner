@@ -111,12 +111,12 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {STATS.map(s => <StatsCard key={s.label} {...s} />)}
       </div>
 
       {/* Revenue strip */}
-      <div className="bg-brand-wine rounded-2xl p-5 text-white grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="bg-brand-wine rounded-2xl p-5 text-white grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Monthly Revenue', value: `₹${(d.monthRevenue / 100).toLocaleString('en-IN')}`, sub: 'paid subscriptions' },
           { label: 'Premium Plans',   value: d.premiumCount.toString(),                             sub: 'active subscriptions' },
@@ -210,7 +210,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: 'New Blog Post',    href: '/admin/blog/new',          color: 'bg-blue-50  text-blue-600  hover:bg-blue-100'  },
           { label: 'Add Real Wedding', href: '/admin/real-weddings/new', color: 'bg-pink-50  text-pink-600  hover:bg-pink-100'  },

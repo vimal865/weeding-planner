@@ -33,13 +33,13 @@ export function SearchHero() {
           </div>
 
           {/* Headline */}
-          <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold text-brand-wine leading-tight">
+          <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-brand-wine leading-tight">
             Find the Perfect
             <span className="text-brand-rose italic"> Wedding Vendors </span>
             in Kerala &amp; Tamil Nadu
           </h1>
 
-          <p className="mt-5 text-gray-500 text-lg md:text-xl leading-relaxed max-w-2xl mx-auto">
+          <p className="mt-4 text-gray-500 text-base md:text-xl leading-relaxed max-w-2xl mx-auto">
             1,000+ verified vendors across 30+ cities. Compare prices, read real reviews, and book easily.
           </p>
 

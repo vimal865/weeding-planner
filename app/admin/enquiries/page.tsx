@@ -53,7 +53,7 @@ export default async function AdminEnquiriesPage() {
       </div>
 
       {/* Status summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         {Object.entries(STATUS_CFG).map(([status, cfg]) => (
           <div key={status} className="bg-white rounded-xl border border-gray-100 p-4 text-center shadow-sm">
             <p className="text-2xl font-bold text-gray-800 font-serif">{counts[status] || 0}</p>
@@ -66,9 +66,9 @@ export default async function AdminEnquiriesPage() {
 
       {/* Filter bar */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 flex-1 min-w-48 bg-gray-50 rounded-xl px-3 py-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto bg-gray-50 rounded-xl px-3 py-2">
           <Search size={14} className="text-gray-400 shrink-0" />
-          <input type="text" placeholder="Search couple name, vendor..." className="flex-1 bg-transparent text-sm text-gray-600 placeholder-gray-400 focus:outline-none" />
+          <input type="text" placeholder="Search couple name, vendor..." className="flex-1 bg-transparent text-sm text-gray-600 placeholder-gray-400 focus:outline-none min-w-0" />
         </div>
         <select className="text-sm border border-gray-200 text-gray-600 px-3 py-2 rounded-xl bg-white focus:outline-none cursor-pointer">
           <option>All Status</option>

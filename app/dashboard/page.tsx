@@ -60,8 +60,8 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-brand-cream">
-      <div className="bg-white border-b border-brand-rose-light py-8">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+      <div className="bg-white border-b border-brand-rose-light py-6 sm:py-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-serif text-2xl font-bold text-brand-wine">
               Welcome, {displayName}!
@@ -184,21 +184,21 @@ export default async function DashboardPage() {
             <div className="bg-white rounded-2xl border border-brand-rose-light shadow-sm overflow-hidden">
               <div className="divide-y divide-gray-50">
                 {enquiries.map((e: any) => (
-                  <div key={e.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors">
+                  <div key={e.id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5 hover:bg-gray-50 transition-colors">
                     <div className="w-9 h-9 rounded-xl bg-brand-rose-light text-brand-wine text-sm font-bold flex items-center justify-center shrink-0">
                       {e.vendors?.name?.[0]?.toUpperCase() ?? '?'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-700 truncate">{e.vendors?.name ?? 'Unknown Vendor'}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-400 truncate">
                         {e.vendors?.category ? getCategoryMeta(e.vendors.category as VendorCategory).label : ''}
                         {e.wedding_date
                           ? ` · ${new Date(e.wedding_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`
                           : ''}
                       </p>
                     </div>
-                    <div className="shrink-0 flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_COLORS[e.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                    <div className="shrink-0 flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize whitespace-nowrap ${STATUS_COLORS[e.status] ?? 'bg-gray-100 text-gray-500'}`}>
                         {e.status}
                       </span>
                       {e.vendors?.slug && (

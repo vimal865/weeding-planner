@@ -115,7 +115,7 @@ export default async function VendorDetailPage({ params }: Props) {
 
             {/* Cover + gallery */}
             <div className="bg-white rounded-2xl overflow-hidden border border-brand-rose-light">
-              <div className="relative h-72 md:h-96">
+              <div className="relative h-52 sm:h-72 md:h-96">
                 {vendor.cover_image ? (
                   <Image
                     src={vendor.cover_image}
@@ -158,7 +158,7 @@ export default async function VendorDetailPage({ params }: Props) {
 
               {/* Thumbnail gallery */}
               {vendor.gallery && vendor.gallery.length > 0 && (
-                <div className="grid grid-cols-6 gap-1 p-1">
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1 p-1">
                   {vendor.gallery.slice(0, 6).map((img, i) => (
                     <div key={i} className="relative aspect-square rounded-lg overflow-hidden cursor-pointer group">
                       <Image
@@ -311,7 +311,7 @@ export default async function VendorDetailPage({ params }: Props) {
           {/* ── Right sidebar / sticky contact ── */}
           <div className="space-y-4">
             {/* Contact card */}
-            <div className="bg-white rounded-2xl p-5 border border-brand-rose-light sticky top-24">
+            <div className="bg-white rounded-2xl p-5 border border-brand-rose-light lg:sticky lg:top-24">
               <h3 className="font-serif text-lg font-semibold text-brand-wine mb-4">Get in Touch</h3>
 
               <div className="space-y-2.5 mb-4">
