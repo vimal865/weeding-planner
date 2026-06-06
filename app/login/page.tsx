@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, Suspense } from 'react'
 import Link                               from 'next/link'
-import { useRouter, useSearchParams }     from 'next/navigation'
+import { useSearchParams }                 from 'next/navigation'
 import { Mail, Phone, Chrome, Eye, EyeOff, Loader2, ArrowRight, User } from 'lucide-react'
 import { cn }                             from '@/lib/utils'
 import { createClient }                   from '@/lib/supabase'
@@ -11,7 +11,6 @@ type Tab  = 'password' | 'google' | 'phone'
 type Mode = 'signin'   | 'signup'
 
 function LoginForm() {
-  const router        = useRouter()
   const searchParams  = useSearchParams()
   const supabase      = createClient()
 
@@ -53,6 +52,8 @@ function LoginForm() {
     setSignedUp(false)
   }
 
+  const redirectTo = searchParams.get('next') || '/dashboard'
+
   // ── Sign in ─────────────────────────────────────────────────────────────────
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault()
@@ -61,10 +62,9 @@ function LoginForm() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
       toast.success('Signed in!')
-      router.push('/dashboard')
+      window.location.href = redirectTo
     } catch {
       toast.error('Invalid email or password.')
-    } finally {
       setLoading(false)
     }
   }
@@ -78,7 +78,7 @@ function LoginForm() {
 
     setLoading(true)
     try {
-      // Call server-side signup — creates user already confirmed, returns session token
+      // Server creates user with email_confirm:true (bypasses Supabase SMTP rate limit)
       const res  = await fetch('/api/auth/signup', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,21 +90,16 @@ function LoginForm() {
         throw new Error(data.error ?? 'Sign-up failed.')
       }
 
-      const { token_hash } = data.data as { token_hash: string; email: string; name: string }
-
-      // Exchange the server-generated token for a live session
-      const { error: sessionErr } = await supabase.auth.verifyOtp({
-        token_hash,
-        type: 'magiclink',
-      })
-      if (sessionErr) throw sessionErr
+      // Now sign in with password — standard Supabase flow that correctly sets session cookies
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInErr) throw signInErr
 
       toast.success(`Welcome, ${name.trim()}! Account created.`)
-      router.push('/dashboard')
+      // Hard redirect so middleware sees the fresh session cookie on the very first load
+      window.location.href = '/dashboard'
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign-up failed.'
       toast.error(msg)
-    } finally {
       setLoading(false)
     }
   }
@@ -163,7 +158,7 @@ function LoginForm() {
       if (error) throw error
 
       toast.success('Logged in successfully!')
-      router.push('/dashboard')
+      window.location.href = redirectTo
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Verification failed')
     } finally {

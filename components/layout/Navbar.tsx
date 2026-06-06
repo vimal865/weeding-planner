@@ -1,10 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link                    from 'next/link'
-import { usePathname }         from 'next/navigation'
-import { Menu, X, ChevronDown, Heart, User, Globe } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Menu, X, ChevronDown, Heart, User, Globe, LayoutDashboard, LogOut, Settings } from 'lucide-react'
 import { cn }                  from '@/lib/utils'
-import { CATEGORIES }          from '@/lib/utils'
+import { createClient }        from '@/lib/supabase'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 const NAV_LINKS = [
   {
@@ -30,7 +31,32 @@ export function Navbar() {
   const [open,      setOpen]      = useState(false)
   const [scrolled,  setScrolled]  = useState(false)
   const [dropdown,  setDropdown]  = useState<string | null>(null)
-  const pathname = usePathname()
+  const [user,      setUser]      = useState<SupabaseUser | null>(null)
+  const [userMenu,  setUserMenu]  = useState(false)
+  const pathname  = usePathname()
+  const router    = useRouter()
+  const supabase  = createClient()
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  // Track auth state
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Close user menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60)
@@ -39,6 +65,20 @@ export function Navbar() {
   }, [])
 
   useEffect(() => { setOpen(false); setDropdown(null) }, [pathname])
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    setUserMenu(false)
+    router.push('/')
+    router.refresh()
+  }
+
+  const displayName = user?.user_metadata?.full_name
+    || user?.user_metadata?.name
+    || user?.email?.split('@')[0]
+    || 'Account'
+
+  const initials = displayName.slice(0, 2).toUpperCase()
 
   return (
     <header
@@ -66,8 +106,7 @@ export function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 flex-shrink-0">
             <span className="text-2xl font-serif font-bold text-brand-wine leading-none">
-              Kalyanam
-              <span className="text-brand-rose">Today</span>
+              Kalyanam<span className="text-brand-rose">Today</span>
             </span>
           </Link>
 
@@ -93,7 +132,6 @@ export function Navbar() {
                   {link.dropdown && <ChevronDown size={14} className="opacity-60" />}
                 </Link>
 
-                {/* Dropdown */}
                 {link.dropdown && dropdown === link.label && (
                   <div className="absolute top-full left-0 mt-1 w-52 bg-white rounded-xl shadow-float border border-brand-rose-light py-2 z-50">
                     {link.dropdown.map(item => (
@@ -126,13 +164,52 @@ export function Navbar() {
               <Heart size={16} />
             </Link>
 
-            <Link
-              href="/login"
-              className="hidden md:flex items-center gap-1.5 text-sm font-medium text-brand-wine border border-brand-rose/40 hover:border-brand-rose hover:bg-brand-rose-light px-3 py-1.5 rounded-lg transition-all"
-            >
-              <User size={15} />
-              Login
-            </Link>
+            {user ? (
+              /* ── Logged-in: avatar + dropdown ── */
+              <div className="relative hidden md:block" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenu(v => !v)}
+                  className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border border-brand-rose/30 hover:border-brand-rose hover:bg-brand-rose-light transition-all"
+                >
+                  <div className="w-7 h-7 rounded-full bg-brand-wine text-white text-xs font-bold flex items-center justify-center">
+                    {initials}
+                  </div>
+                  <span className="text-sm font-medium text-brand-wine max-w-[90px] truncate">{displayName}</span>
+                  <ChevronDown size={12} className="text-gray-400" />
+                </button>
+
+                {userMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-float border border-brand-rose-light py-2 z-50">
+                    <Link href="/dashboard" onClick={() => setUserMenu(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-brand-rose-light hover:text-brand-wine transition-colors">
+                      <LayoutDashboard size={14} /> My Dashboard
+                    </Link>
+                    <Link href="/wishlist" onClick={() => setUserMenu(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-brand-rose-light hover:text-brand-wine transition-colors">
+                      <Heart size={14} /> Saved Vendors
+                    </Link>
+                    <Link href="/dashboard/settings" onClick={() => setUserMenu(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-brand-rose-light hover:text-brand-wine transition-colors">
+                      <Settings size={14} /> Settings
+                    </Link>
+                    <div className="border-t border-brand-rose-light my-1" />
+                    <button onClick={handleLogout}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors w-full text-left">
+                      <LogOut size={14} /> Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── Logged-out: Login button ── */
+              <Link
+                href="/login"
+                className="hidden md:flex items-center gap-1.5 text-sm font-medium text-brand-wine border border-brand-rose/40 hover:border-brand-rose hover:bg-brand-rose-light px-3 py-1.5 rounded-lg transition-all"
+              >
+                <User size={15} />
+                Login
+              </Link>
+            )}
 
             <Link
               href="/vendors/list-your-business"
@@ -172,11 +249,8 @@ export function Navbar() {
               {link.dropdown && (
                 <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-brand-rose-light pl-3">
                   {link.dropdown.slice(0, 5).map(item => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className="block px-2 py-1.5 text-sm text-gray-500 hover:text-brand-wine transition-colors"
-                    >
+                    <Link key={item.href} href={item.href}
+                      className="block px-2 py-1.5 text-sm text-gray-500 hover:text-brand-wine transition-colors">
                       {item.label}
                     </Link>
                   ))}
@@ -185,8 +259,17 @@ export function Navbar() {
             </div>
           ))}
           <div className="pt-3 border-t border-brand-rose-light flex flex-col gap-2">
-            <Link href="/login"   className="btn-secondary text-sm text-center">Login / Register</Link>
-            <Link href="/vendors/list-your-business" className="btn-primary text-sm text-center">List Your Business</Link>
+            {user ? (
+              <>
+                <Link href="/dashboard" className="btn-secondary text-sm text-center">My Dashboard</Link>
+                <button onClick={handleLogout} className="text-sm text-red-500 text-center py-2">Sign Out</button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="btn-secondary text-sm text-center">Login / Register</Link>
+                <Link href="/vendors/list-your-business" className="btn-primary text-sm text-center">List Your Business</Link>
+              </>
+            )}
           </div>
         </div>
       )}

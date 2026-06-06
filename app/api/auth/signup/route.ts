@@ -47,21 +47,7 @@ export async function POST(req: NextRequest) {
       { onConflict: 'id' },
     )
 
-    // Generate a magic-link token so the client can exchange it for a real session
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-    const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
-      type:    'magiclink',
-      email,
-      options: { redirectTo: `${siteUrl}/dashboard` },
-    })
-
-    if (linkErr || !linkData?.properties?.action_link) {
-      console.error('[Signup] generateLink error:', linkErr)
-      return err('Account created but could not generate session. Please sign in.', 500)
-    }
-
-    const actionUrl = new URL(linkData.properties.action_link)
-    const tokenHash = actionUrl.searchParams.get('token')
 
     // Send a welcome email in the background (non-blocking, no error if it fails)
     sendEmail(email, {
@@ -86,7 +72,7 @@ export async function POST(req: NextRequest) {
       `,
     }).catch(() => {}) // fire-and-forget
 
-    return ok({ token_hash: tokenHash, email, name })
+    return ok({ email, name })
   } catch (e) {
     return serverError(e)
   }
