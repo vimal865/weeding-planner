@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(git push *)",
-      "Bash(vercel login *)"
+      "Bash(vercel login *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Fix nav link wrapping with whitespace-nowrap and tighter padding *)"
     ]
   }
 }
