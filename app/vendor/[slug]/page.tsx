@@ -17,8 +17,8 @@ interface Props { params: { slug: string } }
 async function getVendor(slug: string): Promise<Vendor | null> {
   const { data, error } = await supabaseAdmin
     .from('vendors')
-    .select('*')
-    .or(`slug.eq.${slug},id.eq.${slug}`)
+    .select('id,slug,owner_id,name,category,sub_category,description,about,city,state,phone,whatsapp,email,website,instagram_handle,google_map_url,latitude,longitude,starting_price,max_price,price_unit,cover_image,gallery,reels,services,languages,tags,faqs,published,verified,premium,featured,plan_tier,plan_expires_at,rating,review_count,enquiry_count,view_count,created_at,updated_at')
+    .eq('slug', slug)
     .eq('published', true)
     .single()
 

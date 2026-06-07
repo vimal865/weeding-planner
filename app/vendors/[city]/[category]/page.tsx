@@ -1,7 +1,9 @@
 import type { Metadata }       from 'next'
+import { Suspense }             from 'react'
 import Link                     from 'next/link'
 import { VendorCard }           from '@/components/vendor/VendorCard'
 import { VendorFiltersPanel }   from '@/components/vendor/VendorFiltersPanel'
+import { VendorSortSelect }     from '@/components/vendor/VendorSortSelect'
 import { getCategoryMeta, getCity, ALL_CITIES, CATEGORIES } from '@/lib/utils'
 import { SlidersHorizontal, MapPin, ChevronRight } from 'lucide-react'
 import type { VendorCategory, VendorSummary } from '@/lib/types'
@@ -178,16 +180,9 @@ export default async function VendorListingPage({ params, searchParams }: Props)
                 <button className="lg:hidden flex items-center gap-1.5 text-sm font-medium text-brand-wine border border-brand-rose-light px-3 py-1.5 rounded-lg hover:bg-brand-rose-light transition-colors">
                   <SlidersHorizontal size={14} /> Filters
                 </button>
-                <select
-                  defaultValue={searchParams.sort ?? 'popular'}
-                  className="text-sm border border-brand-rose-light rounded-lg px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-brand-rose/30 cursor-pointer"
-                >
-                  <option value="popular">Most Popular</option>
-                  <option value="rating">Highest Rated</option>
-                  <option value="price_asc">Price: Low to High</option>
-                  <option value="price_desc">Price: High to Low</option>
-                  <option value="newest">Newest</option>
-                </select>
+                <Suspense fallback={null}>
+                  <VendorSortSelect current={searchParams.sort ?? 'popular'} />
+                </Suspense>
               </div>
             </div>
 

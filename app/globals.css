@@ -33,9 +33,9 @@
 
   /* Custom scrollbar */
   ::-webkit-scrollbar        { width: 6px; }
-  ::-webkit-scrollbar-track  { background: #FFF8F2; }
-  ::-webkit-scrollbar-thumb  { background: #B76E79; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #8A4A54; }
+  ::-webkit-scrollbar-track  { background: #FAF7F2; }
+  ::-webkit-scrollbar-thumb  { background: #B8875A; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9A6A45; }
 }
 
 @layer components {
@@ -114,12 +114,12 @@
 
 /* Hero gradient */
 .hero-bg {
-  background: linear-gradient(135deg, #FFF8F2 0%, #F9E4E8 40%, #FFF0F5 70%, #FFF8F2 100%);
+  background: linear-gradient(135deg, #FAF7F2 0%, #F0E6D8 40%, #EDE5D8 70%, #FAF7F2 100%);
 }
 
 /* Decorative pattern */
 .pattern-bg {
-  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23B76E79' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%238C603E' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* WhatsApp float button */

@@ -44,7 +44,7 @@ export function ratingLabel(rating: number) {
 // ── Categories ──────────────────────────────────────────────────────────────
 export const CATEGORIES: CategoryMeta[] = [
   { slug: 'venues',              label: 'Wedding Venues',    icon: '🏛️',  description: 'Banquet halls, resorts, mandapams' },
-  { slug: 'photographers',       label: 'Photography',       icon: '📸',  description: 'Candid, cinematic, pre-wedding' },
+  { slug: 'photographers',       label: 'Photographers',     icon: '📸',  description: 'Candid, cinematic, pre-wedding' },
   { slug: 'makeup_artists',      label: 'Makeup Artists',    icon: '💄',  description: 'Bridal, airbrush, saree draping' },
   { slug: 'catering',            label: 'Catering',          icon: '🍽️',  description: 'Kerala Sadya, Tamil cuisine, live counters' },
   { slug: 'decorators',          label: 'Decoration',        icon: '🌸',  description: 'Stage, floral, mandap, lighting' },

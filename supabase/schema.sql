@@ -1,31 +1,41 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- KalyanamToday — Complete Supabase Database Schema
 -- Run this in your Supabase SQL editor
+-- Safe to re-run: uses IF NOT EXISTS everywhere
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ── Extensions ───────────────────────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS pg_trgm;  -- Full-text search
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- ── Enums ─────────────────────────────────────────────────────────────────────
-CREATE TYPE vendor_category AS ENUM (
-  'venues', 'photographers', 'makeup_artists', 'catering',
-  'decorators', 'mehendi', 'dj_music', 'wedding_planners',
-  'invitation_designers', 'bridal_wear', 'priests_astrologers'
-);
+-- ── Enums (safe to re-run) ────────────────────────────────────────────────────
+DO $$ BEGIN
+  CREATE TYPE vendor_category AS ENUM (
+    'venues', 'photographers', 'makeup_artists', 'catering',
+    'decorators', 'mehendi', 'dj_music', 'wedding_planners',
+    'invitation_designers', 'bridal_wear', 'priests_astrologers'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE TYPE enquiry_status   AS ENUM ('new', 'viewed', 'replied', 'booked', 'closed');
-CREATE TYPE rsvp_status      AS ENUM ('invited', 'confirmed', 'declined', 'attended');
-CREATE TYPE plan_tier        AS ENUM ('free', 'premium', 'elite');
-CREATE TYPE food_pref        AS ENUM ('veg', 'non_veg', 'jain');
-CREATE TYPE guest_side       AS ENUM ('bride', 'groom', 'common');
-CREATE TYPE state_val        AS ENUM ('kerala', 'tamil_nadu');
-CREATE TYPE price_unit       AS ENUM ('per_event', 'per_day', 'per_hour', 'per_plate');
+DO $$ BEGIN CREATE TYPE enquiry_status AS ENUM ('new', 'viewed', 'replied', 'booked', 'closed');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE rsvp_status   AS ENUM ('invited', 'confirmed', 'declined', 'attended');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE plan_tier     AS ENUM ('free', 'premium', 'elite');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE food_pref     AS ENUM ('veg', 'non_veg', 'jain');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE guest_side    AS ENUM ('bride', 'groom', 'common');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE state_val     AS ENUM ('kerala', 'tamil_nadu');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE price_unit    AS ENUM ('per_event', 'per_day', 'per_hour', 'per_plate');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- USER PROFILES  (extends Supabase auth.users)
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE user_profiles (
+CREATE TABLE IF NOT EXISTS user_profiles (
   id            UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name     TEXT NOT NULL DEFAULT '',
   phone         TEXT,
@@ -42,11 +52,13 @@ CREATE OR REPLACE FUNCTION create_user_profile()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
   INSERT INTO user_profiles (id, full_name)
-  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', ''));
+  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', ''))
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION create_user_profile();
@@ -54,7 +66,7 @@ CREATE TRIGGER on_auth_user_created
 -- ─────────────────────────────────────────────────────────────────────────────
 -- VENDORS
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE vendors (
+CREATE TABLE IF NOT EXISTS vendors (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   owner_id        UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   slug            TEXT UNIQUE NOT NULL,
@@ -123,26 +135,27 @@ CREATE TABLE vendors (
 );
 
 -- Indexes for common queries
-CREATE INDEX idx_vendors_category     ON vendors(category);
-CREATE INDEX idx_vendors_city         ON vendors(lower(city));
-CREATE INDEX idx_vendors_published    ON vendors(published, verified);
-CREATE INDEX idx_vendors_search       ON vendors USING GIN(search_vector);
-CREATE INDEX idx_vendors_trgm_name    ON vendors USING GIN(name gin_trgm_ops);
-CREATE INDEX idx_vendors_location     ON vendors(latitude, longitude);
-CREATE INDEX idx_vendors_plan         ON vendors(plan_tier, plan_expires_at);
+CREATE INDEX IF NOT EXISTS idx_vendors_category  ON vendors(category);
+CREATE INDEX IF NOT EXISTS idx_vendors_city      ON vendors(lower(city));
+CREATE INDEX IF NOT EXISTS idx_vendors_published ON vendors(published, verified);
+CREATE INDEX IF NOT EXISTS idx_vendors_search    ON vendors USING GIN(search_vector);
+CREATE INDEX IF NOT EXISTS idx_vendors_trgm_name ON vendors USING GIN(name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_vendors_location  ON vendors(latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_vendors_plan      ON vendors(plan_tier, plan_expires_at);
 
 -- Auto-update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$;
+DROP TRIGGER IF EXISTS vendors_updated_at ON vendors;
 CREATE TRIGGER vendors_updated_at BEFORE UPDATE ON vendors
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- ENQUIRIES / LEADS
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE enquiries (
+CREATE TABLE IF NOT EXISTS enquiries (
   id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   vendor_id     UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
   user_id       UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -163,8 +176,8 @@ CREATE TABLE enquiries (
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_enquiries_vendor ON enquiries(vendor_id, created_at DESC);
-CREATE INDEX idx_enquiries_status ON enquiries(status);
+CREATE INDEX IF NOT EXISTS idx_enquiries_vendor ON enquiries(vendor_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_enquiries_status ON enquiries(status);
 
 -- Increment vendor enquiry_count on new enquiry
 CREATE OR REPLACE FUNCTION increment_enquiry_count()
@@ -174,13 +187,14 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+DROP TRIGGER IF EXISTS on_new_enquiry ON enquiries;
 CREATE TRIGGER on_new_enquiry AFTER INSERT ON enquiries
   FOR EACH ROW EXECUTE FUNCTION increment_enquiry_count();
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- REVIEWS
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
   id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   vendor_id     UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
   user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -188,9 +202,9 @@ CREATE TABLE reviews (
   rating        SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
   title         TEXT,
   body          TEXT NOT NULL,
-  wedding_month TEXT,   -- 'December 2024'
+  wedding_month TEXT,
 
-  verified      BOOLEAN DEFAULT FALSE,  -- only true if they enquired through platform
+  verified      BOOLEAN DEFAULT FALSE,
   helpful_count INTEGER DEFAULT 0,
 
   vendor_reply  TEXT,
@@ -200,7 +214,7 @@ CREATE TABLE reviews (
   UNIQUE(vendor_id, user_id)
 );
 
-CREATE INDEX idx_reviews_vendor ON reviews(vendor_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reviews_vendor ON reviews(vendor_id, created_at DESC);
 
 -- Auto-update vendor rating when review added/updated/deleted
 CREATE OR REPLACE FUNCTION update_vendor_rating()
@@ -216,13 +230,14 @@ BEGIN
   RETURN COALESCE(NEW, OLD);
 END;
 $$;
+DROP TRIGGER IF EXISTS on_review_change ON reviews;
 CREATE TRIGGER on_review_change AFTER INSERT OR UPDATE OR DELETE ON reviews
   FOR EACH ROW EXECUTE FUNCTION update_vendor_rating();
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- WISHLIST / SAVED VENDORS
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE wishlists (
+CREATE TABLE IF NOT EXISTS wishlists (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   vendor_id  UUID NOT NULL REFERENCES vendors(id)   ON DELETE CASCADE,
@@ -234,8 +249,7 @@ CREATE TABLE wishlists (
 -- PLANNING TOOLS
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- Wedding Checklist
-CREATE TABLE checklist_tasks (
+CREATE TABLE IF NOT EXISTS checklist_tasks (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id            UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title              TEXT NOT NULL,
@@ -250,10 +264,9 @@ CREATE TABLE checklist_tasks (
   sort_order         SMALLINT DEFAULT 0,
   created_at         TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX idx_checklist_user ON checklist_tasks(user_id, completed);
+CREATE INDEX IF NOT EXISTS idx_checklist_user ON checklist_tasks(user_id, completed);
 
--- Budget Planner
-CREATE TABLE budget_items (
+CREATE TABLE IF NOT EXISTS budget_items (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   category    TEXT NOT NULL,
@@ -264,10 +277,9 @@ CREATE TABLE budget_items (
   notes       TEXT,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX idx_budget_user ON budget_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_budget_user ON budget_items(user_id);
 
--- Guest List
-CREATE TABLE guests (
+CREATE TABLE IF NOT EXISTS guests (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
@@ -281,12 +293,12 @@ CREATE TABLE guests (
   notes       TEXT,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX idx_guests_user ON guests(user_id, rsvp_status);
+CREATE INDEX IF NOT EXISTS idx_guests_user ON guests(user_id, rsvp_status);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- BLOG
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE blog_posts (
+CREATE TABLE IF NOT EXISTS blog_posts (
   id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   slug         TEXT UNIQUE NOT NULL,
   title        TEXT NOT NULL,
@@ -306,7 +318,7 @@ CREATE TABLE blog_posts (
 -- ─────────────────────────────────────────────────────────────────────────────
 -- REAL WEDDINGS
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE real_weddings (
+CREATE TABLE IF NOT EXISTS real_weddings (
   id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   slug         TEXT UNIQUE NOT NULL,
   bride_name   TEXT NOT NULL,
@@ -314,12 +326,12 @@ CREATE TABLE real_weddings (
   wedding_date DATE NOT NULL,
   venue_city   TEXT NOT NULL,
   state        state_val NOT NULL DEFAULT 'kerala',
-  wedding_type TEXT,  -- 'Kerala Hindu', 'Tamil Brahmin', etc.
+  wedding_type TEXT,
   cover_image  TEXT NOT NULL,
   gallery      TEXT[] DEFAULT '{}',
   story        TEXT,
-  budget_range TEXT,  -- '₹5L – ₹10L'
-  vendors      JSONB  DEFAULT '[]',  -- [{category, vendor_id, vendor_name}]
+  budget_range TEXT,
+  vendors      JSONB  DEFAULT '[]',
   published    BOOLEAN DEFAULT FALSE,
   view_count   INTEGER DEFAULT 0,
   created_at   TIMESTAMPTZ DEFAULT NOW()
@@ -328,7 +340,7 @@ CREATE TABLE real_weddings (
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SUBSCRIPTIONS / PAYMENTS
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
   id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   vendor_id     UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
   plan          plan_tier NOT NULL,
@@ -343,54 +355,67 @@ CREATE TABLE subscriptions (
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_subscriptions_vendor ON subscriptions(vendor_id, status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_vendor ON subscriptions(vendor_id, status);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- PHONE OTP STORE  (server-side OTP for Fast2SMS phone auth)
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE phone_otps (
-  phone      TEXT        PRIMARY KEY,          -- 10-digit number, no country code
+CREATE TABLE IF NOT EXISTS phone_otps (
+  phone      TEXT        PRIMARY KEY,
   otp        TEXT        NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   attempts   INTEGER     NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE phone_otps ENABLE ROW LEVEL SECURITY;
--- No user-facing policies — accessed only via service-role key (supabaseAdmin)
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- ROW LEVEL SECURITY (RLS)
 -- ─────────────────────────────────────────────────────────────────────────────
-ALTER TABLE user_profiles  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE vendors        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE enquiries      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reviews        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE wishlists      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vendors         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE enquiries       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wishlists       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE checklist_tasks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE budget_items   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE guests         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscriptions  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE budget_items    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE guests          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions   ENABLE ROW LEVEL SECURITY;
 
--- User profiles: own data only
-CREATE POLICY "Users read own profile"    ON user_profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Users update own profile"  ON user_profiles FOR UPDATE USING (auth.uid() = id);
+-- User profiles
+DROP POLICY IF EXISTS "Users read own profile"   ON user_profiles;
+DROP POLICY IF EXISTS "Users update own profile" ON user_profiles;
+CREATE POLICY "Users read own profile"   ON user_profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users update own profile" ON user_profiles FOR UPDATE USING (auth.uid() = id);
 
 -- Vendors: public read if published; owner can CRUD
+DROP POLICY IF EXISTS "Public read published vendors" ON vendors;
+DROP POLICY IF EXISTS "Owner manages vendor"         ON vendors;
 CREATE POLICY "Public read published vendors" ON vendors FOR SELECT USING (published = TRUE);
 CREATE POLICY "Owner manages vendor"         ON vendors FOR ALL    USING (auth.uid() = owner_id);
 
--- Enquiries: vendor owner reads; anyone inserts (enquiry form = public)
-CREATE POLICY "Vendor reads own enquiries"   ON enquiries FOR SELECT USING (
+-- Enquiries
+DROP POLICY IF EXISTS "Vendor reads own enquiries" ON enquiries;
+DROP POLICY IF EXISTS "Anyone can submit enquiry"  ON enquiries;
+CREATE POLICY "Vendor reads own enquiries" ON enquiries FOR SELECT USING (
   vendor_id IN (SELECT id FROM vendors WHERE owner_id = auth.uid())
 );
-CREATE POLICY "Anyone can submit enquiry"    ON enquiries FOR INSERT WITH CHECK (TRUE);
+CREATE POLICY "Anyone can submit enquiry" ON enquiries FOR INSERT WITH CHECK (TRUE);
 
--- Reviews: public read; authed users insert own
-CREATE POLICY "Public read reviews"          ON reviews FOR SELECT USING (TRUE);
-CREATE POLICY "Users add own review"         ON reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users update own review"      ON reviews FOR UPDATE USING (auth.uid() = user_id);
+-- Reviews
+DROP POLICY IF EXISTS "Public read reviews"   ON reviews;
+DROP POLICY IF EXISTS "Users add own review"  ON reviews;
+DROP POLICY IF EXISTS "Users update own review" ON reviews;
+CREATE POLICY "Public read reviews"     ON reviews FOR SELECT USING (TRUE);
+CREATE POLICY "Users add own review"    ON reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users update own review" ON reviews FOR UPDATE USING (auth.uid() = user_id);
 
--- Planning tools: user manages own
+-- Planning tools
+DROP POLICY IF EXISTS "User owns checklist" ON checklist_tasks;
+DROP POLICY IF EXISTS "User owns budget"    ON budget_items;
+DROP POLICY IF EXISTS "User owns guests"    ON guests;
+DROP POLICY IF EXISTS "User owns wishlist"  ON wishlists;
+DROP POLICY IF EXISTS "Vendor owns subs"    ON subscriptions;
 CREATE POLICY "User owns checklist" ON checklist_tasks FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "User owns budget"    ON budget_items    FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "User owns guests"    ON guests          FOR ALL USING (auth.uid() = user_id);
@@ -398,17 +423,3 @@ CREATE POLICY "User owns wishlist"  ON wishlists       FOR ALL USING (auth.uid()
 CREATE POLICY "Vendor owns subs"    ON subscriptions   FOR ALL USING (
   vendor_id IN (SELECT id FROM vendors WHERE owner_id = auth.uid())
 );
-
--- ─────────────────────────────────────────────────────────────────────────────
--- SEED DATA — Sample checklist templates
--- ─────────────────────────────────────────────────────────────────────────────
--- (Run this separately after user creation)
--- INSERT INTO checklist_tasks (user_id, title, category, due_months_before, is_custom)
--- VALUES
---   ('{user_id}', 'Fix wedding date and venue', 'Venue',        12, FALSE),
---   ('{user_id}', 'Book photographer',          'Photography',  10, FALSE),
---   ('{user_id}', 'Book catering service',      'Catering',     8,  FALSE),
---   ('{user_id}', 'Book makeup artist',         'Makeup',       6,  FALSE),
---   ('{user_id}', 'Order wedding attire',       'Attire',       6,  FALSE),
---   ('{user_id}', 'Send invitations',           'Invitations',  2,  FALSE),
---   ('{user_id}', 'Final vendor confirmations', 'General',      1,  FALSE);

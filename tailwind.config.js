@@ -9,15 +9,15 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          rose:   '#B76E79',
-          'rose-light': '#F9E4E8',
-          'rose-dark':  '#8A4A54',
-          wine:   '#6B2737',
-          'wine-dark':  '#4A1020',
-          gold:   '#C8962E',
+          rose:         '#B8875A',   // warm caramel
+          'rose-light': '#F0E6D8',   // very light warm tint
+          'rose-dark':  '#9A6A45',   // medium brown
+          wine:         '#8C603E',   // primary warm brown  #8C603E
+          'wine-dark':  '#6A4A2E',   // deep brown
+          gold:         '#C8962E',
           'gold-light': '#FDF3DC',
-          cream:  '#FFF8F2',
-          'cream-dark': '#F5EDE4',
+          cream:        '#FAF7F2',   // light warm white (body bg)
+          'cream-dark': '#D8D0C2',   // sandy beige  #D8D0C2
         },
       },
       fontFamily: {
