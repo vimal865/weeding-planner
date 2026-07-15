@@ -19,8 +19,9 @@ export async function POST(req: NextRequest) {
       .from('vendors').select('id,name,slug,phone,whatsapp,email,category').eq('id', d.vendor_id).single()
     if (vErr || !vendor) return err('Vendor not found', 404)
 
-    // Get logged-in user if any
-    const supabase     = (await import('@/lib/supabase')).createClient()
+    // Get logged-in user if any (use server client so cookies are read correctly)
+    const { createServerSupabaseClient } = await import('@/lib/supabase-server')
+    const supabase = await createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     // Save enquiry

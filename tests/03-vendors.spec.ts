@@ -23,7 +23,7 @@ test.describe('Vendor Listing', () => {
 
   test('vendor count is displayed', async ({ page }) => {
     await page.goto('/vendors/kochi/photographers')
-    await expect(page.locator('text=/\\d+ vendor/i')).toBeVisible()
+    await expect(page.locator('text=/\\d+ vendor/i').first()).toBeVisible()
   })
 
   test('sort dropdown works', async ({ page }) => {
@@ -75,7 +75,7 @@ test.describe('Vendor Detail', () => {
     // Name
     await expect(page.locator('h1').first()).toBeVisible()
     // City badge
-    await expect(page.locator('text=Kochi')).toBeVisible()
+    await expect(page.locator('text=Kochi, Kerala')).toBeVisible()
     // Contact card
     await expect(page.getByRole('heading', { name: /Get in Touch/i })).toBeVisible()
     // WhatsApp button

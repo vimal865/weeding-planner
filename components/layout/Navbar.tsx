@@ -21,7 +21,7 @@ const NAV_LINKS = [
     ],
   },
   { label: 'Real Weddings',     href: '/real-weddings' },
-  { label: 'Inspiration',       href: '/inspiration'   },
+  { label: 'Photo Gallery',      href: '/inspiration'   },
   { label: 'Planning Tools',    href: '/planning'      },
   { label: 'Muhurtham Dates',   href: '/muhurtham'     },
   { label: 'Blog',              href: '/blog'          },

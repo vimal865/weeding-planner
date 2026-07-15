@@ -23,7 +23,7 @@ test.describe('User Dashboard', () => {
     // 3 tool cards
     await expect(page.getByRole('link', { name: /Wedding Checklist/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /Budget Planner/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /Guest List/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Guest List/i }).first()).toBeVisible()
   })
 
   test('saved vendors section is visible', async ({ page }) => {

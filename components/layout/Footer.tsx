@@ -118,7 +118,7 @@ export function Footer() {
             <ul className="space-y-1.5">
               {[
                 ['Real Weddings',        '/real-weddings'],
-                ['Inspiration Gallery',  '/inspiration'],
+                ['Photo Gallery',         '/inspiration'],
                 ['Planning Tools',       '/planning'],
                 ['Budget Calculator',    '/planning/budget'],
                 ['Guest List',           '/planning/guests'],

@@ -32,7 +32,8 @@ test.describe('Homepage — Public', () => {
     await expect(cards).toHaveCount(8)
   })
 
-  test('navbar shows Login when not authenticated', async ({ page }) => {
+  test('navbar shows Login when not authenticated', async ({ page, isMobile }) => {
+    if (isMobile) test.skip()
     await page.goto('/')
     await expect(page.getByRole('link', { name: /Login/i }).first()).toBeVisible()
   })

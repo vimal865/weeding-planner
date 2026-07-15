@@ -420,10 +420,13 @@ function LoginForm() {
             )
           )}
 
-          <div className="mt-6 pt-4 border-t border-brand-rose-light text-center">
+          <div className="mt-6 pt-4 border-t border-brand-rose-light text-center space-y-2">
             <p className="text-sm text-gray-500">Are you a wedding vendor?</p>
-            <Link href="/vendors/list-your-business" className="text-brand-rose text-sm font-medium hover:underline flex items-center gap-1 justify-center mt-1">
+            <Link href="/vendors/list-your-business" className="text-brand-rose text-sm font-medium hover:underline flex items-center gap-1 justify-center">
               List your business free <ArrowRight size={13} />
+            </Link>
+            <Link href="/admin/login" className="text-xs text-gray-400 hover:text-brand-wine block transition-colors">
+              Already registered? Business Sign In →
             </Link>
           </div>
         </div>

@@ -9,7 +9,7 @@ test.describe('Admin Panel', () => {
     await expect(page.locator('h1').filter({ hasText: /Dashboard/i })).toBeVisible()
     // Stats cards visible
     await expect(page.locator('text=Total Vendors')).toBeVisible()
-    await expect(page.locator('text=Enquiries')).toBeVisible()
+    await expect(page.locator('text=Enquiries (month)')).toBeVisible()
     await expect(page.locator('text=Registered Users')).toBeVisible()
   })
 
@@ -30,7 +30,7 @@ test.describe('Admin Panel', () => {
 
   test('admin vendors search filter is visible', async ({ page }) => {
     await page.goto('/admin/vendors')
-    await expect(page.getByPlaceholder(/Search vendors/i)).toBeVisible()
+    await expect(page.locator('input[placeholder="Search vendors..."]')).toBeVisible()
   })
 
   test('admin vendors pending filter shows pending tab', async ({ page }) => {
@@ -42,14 +42,14 @@ test.describe('Admin Panel', () => {
     await page.goto('/admin/enquiries')
     await expect(page.locator('h1').filter({ hasText: /Enquiries/i })).toBeVisible()
     // Status summary cards
-    await expect(page.locator('text=New')).toBeVisible()
-    await expect(page.locator('text=Booked')).toBeVisible()
+    await expect(page.locator('text=New').first()).toBeVisible()
+    await expect(page.locator('text=Booked').first()).toBeVisible()
   })
 
   test('admin revenue strip shows on dashboard', async ({ page }) => {
     await page.goto('/admin')
     await expect(page.locator('text=Monthly Revenue')).toBeVisible()
-    await expect(page.locator('text=Pending Approval')).toBeVisible()
+    await expect(page.locator('text=Pending Approval').first()).toBeVisible()
   })
 
   test('recent enquiries section on dashboard', async ({ page }) => {
@@ -59,7 +59,7 @@ test.describe('Admin Panel', () => {
 
   test('pending approvals section on dashboard', async ({ page }) => {
     await page.goto('/admin')
-    await expect(page.locator('text=Pending Approvals')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Pending Approvals/i })).toBeVisible()
   })
 
   test('approve vendors link works from dashboard', async ({ page }) => {

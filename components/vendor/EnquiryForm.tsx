@@ -54,7 +54,6 @@ export function EnquiryForm({ vendorId, vendorName }: Props) {
         value={form.name}
         onChange={e => update('name', e.target.value)}
         className="input text-sm"
-        required
       />
       <input
         type="tel"
@@ -62,7 +61,6 @@ export function EnquiryForm({ vendorId, vendorName }: Props) {
         value={form.phone}
         onChange={e => update('phone', e.target.value)}
         className="input text-sm"
-        required
       />
       <input
         type="date"

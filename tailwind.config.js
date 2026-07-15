@@ -9,15 +9,17 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          rose:         '#B8875A',   // warm caramel
-          'rose-light': '#F0E6D8',   // very light warm tint
-          'rose-dark':  '#9A6A45',   // medium brown
-          wine:         '#8C603E',   // primary warm brown  #8C603E
-          'wine-dark':  '#6A4A2E',   // deep brown
+          rose:         '#B5394F',   // warm crimson / rose accent
+          'rose-light': '#F8E8EC',   // very light blush tint
+          'rose-dark':  '#901535',   // darker rose for hover
+          wine:         '#6B1E2C',   // primary burgundy
+          'wine-dark':  '#4A1020',   // deep burgundy
           gold:         '#C8962E',
           'gold-light': '#FDF3DC',
-          cream:        '#FAF7F2',   // light warm white (body bg)
-          'cream-dark': '#D8D0C2',   // sandy beige  #D8D0C2
+          olive:        '#4A4E3F',   // olive green for badges / tags
+          'olive-light':'#EEF0E8',   // light olive tint
+          cream:        '#FDF8F8',   // very light blush white (body bg)
+          'cream-dark': '#E8D5DA',   // light rose beige
         },
       },
       fontFamily: {
@@ -25,8 +27,8 @@ module.exports = {
         sans:   ['var(--font-inter)', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        card:  '0 2px 16px 0 rgba(107,39,55,0.08)',
-        float: '0 8px 32px 0 rgba(107,39,55,0.12)',
+        card:  '0 2px 16px 0 rgba(107,30,44,0.09)',
+        float: '0 8px 32px 0 rgba(107,30,44,0.14)',
       },
       borderRadius: {
         xl2: '1.25rem',
